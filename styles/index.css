@@ -1,0 +1,119 @@
+
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap');
+
+:root {
+  --brand-emerald: #10b981;
+  --brand-blue: #0085C7;
+  --brand-dark: #0F172A;
+  --bg-light: #F8FAFC;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  font-family: 'Cairo', sans-serif;
+  direction: rtl;
+  background-color: var(--bg-light);
+  color: #1E293B;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden; /* تم التعديل ليقوم الأبناء بالتحكم في التمرير */
+  height: 100vh;
+  width: 100vw;
+  position: fixed;
+}
+
+/* Base Layout Containers */
+.app-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+}
+
+.main-content {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 65px); /* Adjusted for header height */
+  overflow: hidden;
+}
+
+@media (min-width: 768px) {
+  .main-content {
+    height: calc(100vh - 80px);
+  }
+}
+
+/* New UI Elements */
+.card-shadow {
+  box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.05);
+}
+
+.category-btn {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.category-btn.active {
+  border: 3px solid #10b981;
+  transform: scale(1.05);
+}
+
+.input-field {
+  background-color: #F1F5F9;
+  border-radius: 1rem;
+  padding: 1rem;
+  font-weight: 700;
+  font-size: 0.875rem;
+  border: none;
+  outline: none;
+  width: 100%;
+  text-align: right;
+}
+
+/* Layout */
+.rh-layout {
+  height: 100%;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.page-container {
+  flex: 1;
+  overflow-y: auto;
+  padding-bottom: 120px;
+  background: var(--bg-light);
+}
+
+.map-page-container {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  padding-bottom: 80px;
+}
+
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+button:active { transform: scale(0.96); }
+
+/* Animation Utils */
+@keyframes glow {
+  0% { box-shadow: 0 0 5px rgba(16, 185, 129, 0.2); }
+  50% { box-shadow: 0 0 25px rgba(16, 185, 129, 0.6); }
+  100% { box-shadow: 0 0 5px rgba(16, 185, 129, 0.2); }
+}
+.animate-glow { animation: glow 2s ease-in-out infinite; }
+
+/* Custom Scroll Area */
+.overflow-both {
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+}
