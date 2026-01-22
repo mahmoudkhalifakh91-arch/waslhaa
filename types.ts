@@ -1,4 +1,5 @@
 
+
 export type UserRole = 'ADMIN' | 'OPERATOR' | 'DRIVER' | 'CUSTOMER';
 export type UserStatus = 'PENDING_APPROVAL' | 'APPROVED' | 'SUSPENDED';
 export type PaymentMethod = 'CASH' | 'WALLET';
@@ -55,6 +56,8 @@ export interface Restaurant {
   menu: MenuItem[];
   isOpen: boolean;
   isFeatured?: boolean; // حقل جديد للإعلانات
+  // Added displayOrder property to fix "Property 'displayOrder' does not exist on type 'Restaurant'" error
+  displayOrder: number;
   promoText?: string;   // نص العرض الخاص
 }
 

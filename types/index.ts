@@ -21,10 +21,11 @@ export interface Ad {
   title: string;
   description: string;
   imageUrl: string;
-  ctaText: string; // نص الزر مثل "اطلب الآن"
+  ctaText: string;
   type: 'special_offer' | 'restaurant' | 'service' | 'general';
-  targetId?: string; // ID المطعم أو الخدمة المرتبطة
+  targetId?: string;
   targetCategory?: OrderCategory;
+  whatsappNumber?: string;
   isActive: boolean;
   displayOrder: number;
   views: number;
@@ -52,6 +53,7 @@ export interface Restaurant {
   menu: MenuItem[];
   isOpen: boolean;
   isFeatured?: boolean;
+  displayOrder: number; // حقل جديد لترتيب الظهور
   promoText?: string;
 }
 
@@ -92,7 +94,7 @@ export interface User {
   email: string;
   phone: string;
   name: string;
-  password?: string; // حقل كلمة السر للإدارة
+  password?: string;
   role: UserRole;
   status: UserStatus;
   photoURL?: string;
@@ -102,6 +104,11 @@ export interface User {
     balance: number;
     totalEarnings: number;
     withdrawn: number;
+  };
+  location?: {
+    lat: number;
+    lng: number;
+    updatedAt: number;
   };
 }
 
@@ -128,7 +135,7 @@ export interface Order {
   restaurantName?: string;
   pickupNotes?: string;
   dropoffNotes?: string;
-  specialRequest?: string; // حقل جديد للطلبات اليدوية أو الخاصة
+  specialRequest?: string;
   passengerCount?: number;
   prescriptionImage?: string;
   notes?: string;

@@ -1,9 +1,9 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 
 // Types
-import type { User, Order, Restaurant } from '../types';
+import type { User, Order } from '../types';
 import { OrderStatus } from '../types';
 
 // Utils
@@ -12,16 +12,14 @@ import { stripFirestore } from '../utils';
 // Services
 import { db } from '../services/firebase';
 import { 
-  collection, query, doc, onSnapshot, orderBy, limit, setDoc, updateDoc, deleteDoc, where
+  collection, query, onSnapshot, orderBy, limit
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 // Icons
 import { 
   Users2, UtensilsCrossed, Megaphone, MapPin, 
   TrendingUp, ShieldCheck, ArrowDown, Bell, 
-  MessageCircle, LogOut, ChevronLeft, Zap, 
-  Activity, ArrowUpRight, Search, PlusCircle,
-  Camera, FileText, X, Building2, Smartphone, Loader2,
+  LogOut, ChevronLeft, Activity, 
   ArrowRight, ArrowUp
 } from 'lucide-react';
 
@@ -78,15 +76,16 @@ const SuperAdminDashboard: React.FC<{ user: User }> = ({ user }) => {
            case 'RESTAURANTS': return <AdminRestaurantManager user={user} />;
            case 'ADS': return <AdminAdsManager user={user} />;
            case 'GEO': return <AdminGeographyManager user={user} />;
+           default: return null;
         }
      };
      return (
        <div className="h-full overflow-auto bg-slate-50" dir="rtl">
           <div className="bg-white border-b border-slate-100 p-4 sticky top-0 z-[200] flex justify-between items-center px-4 md:px-8 shadow-sm">
              <button onClick={() => setActiveTab('DASHBOARD')} className="bg-slate-900 text-white px-6 py-2.5 rounded-xl font-black text-xs flex items-center gap-2 active:scale-95 transition-all">
-                <ArrowRight className="h-4 w-4 rotate-180" /> العودة
+                <ArrowRight className="h-4 w-4 rotate-180" /> العودة للرئيسية
              </button>
-             <h2 className="font-black text-slate-800 text-sm md:text-base">وحدة التحكم</h2>
+             <h2 className="font-black text-slate-800 text-sm md:text-base uppercase tracking-widest">وحدة إدارة {activeTab}</h2>
           </div>
           <div className="min-w-full">
             {renderDetailedView()}
@@ -103,12 +102,9 @@ const SuperAdminDashboard: React.FC<{ user: User }> = ({ user }) => {
       dir="rtl"
     >
       <div className="min-w-full">
-        {/* Top Navigation / Header */}
+        {/* Top Header */}
         <div className="max-w-6xl mx-auto pt-6 md:pt-10 px-4 md:px-6 flex justify-between items-start mb-8 md:mb-12">
            <div className="flex gap-2 md:gap-3">
-              <button className="p-3 md:p-4 bg-white rounded-2xl shadow-sm text-slate-400 hover:text-rose-500 transition-all border border-slate-50 active:scale-90">
-                 <LogOut className="h-5 w-5 rotate-180" />
-              </button>
               <button className="p-3 md:p-4 bg-white rounded-2xl shadow-sm text-slate-400 hover:text-emerald-500 transition-all border border-slate-100 active:scale-90">
                  <Bell className="h-5 w-5" />
               </button>
@@ -116,8 +112,8 @@ const SuperAdminDashboard: React.FC<{ user: User }> = ({ user }) => {
 
            <div className="flex items-center gap-4 md:gap-6">
               <div className="text-right">
-                 <h1 className="text-2xl md:text-4xl font-black text-slate-900 tracking-tighter">مركز الإدارة العليا</h1>
-                 <p className="text-[9px] md:text-[11px] font-bold text-slate-400 uppercase tracking-widest mt-1">التحكم المطلق في المنظومة</p>
+                 <h1 className="text-2xl md:text-4xl font-black text-slate-900 tracking-tighter">لوحة التحكم العليا</h1>
+                 <p className="text-[9px] md:text-[11px] font-bold text-slate-400 uppercase tracking-widest mt-1">إدارة شاملة لمحافظة المنوفية</p>
               </div>
               <div className="bg-slate-900 p-4 md:p-5 rounded-[1.5rem] md:rounded-[2rem] shadow-2xl text-emerald-400">
                  <ShieldCheck className="h-8 w-8 md:h-10 md:w-10" />
@@ -125,7 +121,7 @@ const SuperAdminDashboard: React.FC<{ user: User }> = ({ user }) => {
            </div>
         </div>
 
-        {/* Hero Stats Grid - Horizontal Scroll on small screens if needed */}
+        {/* Stats Grid */}
         <div className="max-w-6xl mx-auto px-4 md:px-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-12 md:mb-16">
            <div className="bg-[#10b981] p-8 md:p-10 rounded-[2.5rem] md:rounded-[3.5rem] text-white shadow-2xl relative overflow-hidden group h-48 md:h-56 flex flex-col justify-between">
               <TrendingUp className="absolute -bottom-4 -left-4 h-24 w-24 md:h-32 md:w-32 opacity-10 group-hover:scale-110 transition-transform duration-700" />
@@ -157,10 +153,10 @@ const SuperAdminDashboard: React.FC<{ user: User }> = ({ user }) => {
         {/* Control Units Grid */}
         <div className="max-w-6xl mx-auto px-4 md:px-6 grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 mb-16 md:mb-20">
            {[
-             { id: 'USERS', label: 'إدارة الأعضاء', desc: 'تعديل، تفعيل، وحظر المستخدمين', icon: <Users2 className="h-8 w-8" />, color: 'bg-indigo-50 text-indigo-500' },
+             { id: 'USERS', label: 'إدارة الأعضاء', desc: 'تفعيل، تعديل وحظر المستخدمين', icon: <Users2 className="h-8 w-8" />, color: 'bg-indigo-50 text-indigo-500' },
              { id: 'RESTAURANTS', label: 'إدارة المطاعم', desc: 'إضافة مطاعم وتعديل المنيو', icon: <UtensilsCrossed className="h-8 w-8" />, color: 'bg-emerald-50 text-emerald-500' },
-             { id: 'ADS', label: 'إدارة الإعلانات', desc: 'نشر عروض ترويجية', icon: <Megaphone className="h-8 w-8" />, color: 'bg-amber-50 text-amber-500' },
-             { id: 'GEO', label: 'إدارة الجغرافيا', desc: 'إضافة قرى ومراكز جديدة', icon: <MapPin className="h-8 w-8" />, color: 'bg-rose-50 text-rose-500' }
+             { id: 'ADS', label: 'إدارة الإعلانات', desc: 'إدارة السلايدر والترويج', icon: <Megaphone className="h-8 w-8" />, color: 'bg-amber-50 text-amber-500' },
+             { id: 'GEO', label: 'إدارة الجغرافيا', desc: 'إضافة مراكز وقرى جديدة', icon: <MapPin className="h-8 w-8" />, color: 'bg-rose-50 text-rose-500' }
            ].map(item => (
             <button key={item.id} onClick={() => setActiveTab(item.id as any)} className="bg-white p-6 md:p-8 rounded-[2.5rem] md:rounded-[3rem] border border-slate-100 shadow-sm flex items-center justify-between hover:shadow-xl hover:border-emerald-500 transition-all group active:scale-[0.98]">
                <ChevronLeft className="h-5 w-5 text-slate-200 group-hover:text-emerald-500 transition-all" />
@@ -175,7 +171,7 @@ const SuperAdminDashboard: React.FC<{ user: User }> = ({ user }) => {
            ))}
         </div>
 
-        {/* Live Feed */}
+        {/* Live Activity Feed */}
         <div ref={activityRef} className="max-w-6xl mx-auto px-4 md:px-6 pb-20">
            <div className="bg-[#020617] rounded-[3rem] md:rounded-[4rem] p-8 md:p-12 shadow-2xl relative overflow-hidden border border-white/5">
               <div className="flex justify-between items-center mb-8 md:mb-12">
@@ -209,7 +205,7 @@ const SuperAdminDashboard: React.FC<{ user: User }> = ({ user }) => {
         </div>
       </div>
 
-      {/* Floating Scroll Top */}
+      {/* Scroll Top Button */}
       {showScrollTop && (
         <button 
           onClick={() => scrollContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' })}
