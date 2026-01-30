@@ -40,7 +40,8 @@ const AIAssistant: React.FC<{ isOpen: boolean, onClose: () => void }> = ({ isOpe
         model: 'gemini-3-flash-preview',
         contents: userMsg,
         config: {
-          systemInstruction: "أنت 'وصـــلــهــا'، المساعد الذكي لتطبيق 'وصـــلــهــا'. أنت خبير بخدمات التوصيل وجغرافيا محافظة المنوفية بالكامل بمراكزها العشرة (شبين، أشمون، منوف، الباجور، قويسنا، بركة السبع، تلا، السادات، الشهداء). تحدث بلهجة مصرية منوفية ودودة، مختصرة، واحترافية.",
+          systemInstruction: "أنت 'وصـــلــهــا'، المساعد الذكي لتطبيق 'وصـــلــهــا'. أنت خبير بخدمات التوصيل وجغرافيا محافظة المنوفية بالكامل بمراكزها العشرة (شبين، أشمون، منوف، الباجور، قويسنا، بركة السبع، تلا، السادات، الشهداء). تحدث بلهجة مصرية منوفية ودودة، مختصرة، واحترافية. كن مساعداً في اقتراح المطاعم، شرح تكلفة المشاوير بناءً على المسافة، وتقديم الدعم الفني العام.",
+          thinkingConfig: { thinkingBudget: 0 }
         },
       });
 
@@ -61,7 +62,7 @@ const AIAssistant: React.FC<{ isOpen: boolean, onClose: () => void }> = ({ isOpe
       <div className="bg-white w-full max-w-lg h-[80vh] sm:h-[650px] rounded-t-[3.5rem] sm:rounded-[3.5rem] shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom">
         <div className="bg-slate-900 p-8 text-white flex justify-between items-center shadow-lg">
           <div className="flex items-center gap-4">
-            <div className="bg-emerald-500 p-3 rounded-2xl shadow-lg"><Sparkles className="h-6 w-6" /></div>
+            <div className="bg-emerald-500 p-3 rounded-2xl shadow-lg animate-glow"><Sparkles className="h-6 w-6" /></div>
             <div className="text-right">
               <h3 className="font-black text-sm">مساعد وصـــلــهــا الذكي</h3>
               <p className="text-[10px] text-emerald-400 font-bold animate-pulse">متصل الآن • المنوفية</p>

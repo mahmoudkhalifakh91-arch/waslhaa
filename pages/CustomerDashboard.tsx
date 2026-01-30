@@ -11,7 +11,7 @@ import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-
 import L from 'leaflet';
 
 // Utils
-import { stripFirestore, compressImage, getRoadDistance } from '../utils';
+import { stripFirestore, compressImage, getRoadDistance, getRouteGeometry } from '../utils';
 
 // Services
 import { db } from '../services/firebase';
@@ -21,7 +21,6 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 // Icons
-// Added missing Send import below
 import { 
   MapPin, Bike, Check, 
   ChevronDown, ChevronRight, Star,
@@ -43,6 +42,22 @@ import ActivityView from './ActivityView';
 import WalletView from './WalletView';
 import ChatView from '../components/ChatView';
 import AIAssistant from '../config/AIAssistant';
+
+// --- Custom Icons ---
+const driverIcon = L.divIcon({
+  html: `<div class="bg-white p-2 rounded-full shadow-2xl border-4 border-emerald-500 animate-bounce text-xl flex items-center justify-center">🛵</div>`,
+  className: 'live-driver-icon',
+  iconSize: [40, 40],
+  iconAnchor: [20, 20]
+});
+
+const MapAutoFit: React.FC<{ points: [number, number][] }> = ({ points }) => {
+  const map = useMap();
+  useEffect(() => {
+    if (points.length > 1) { map.fitBounds(L.latLngBounds(points), { padding: [50, 50] }); }
+  }, [points]);
+  return null;
+};
 
 // --- Sub Components ---
 
@@ -113,6 +128,11 @@ const LocationSelector: React.FC<{
 }> = ({ label, helper, icon, iconBg, selectedDistrict, selectedVillage, onSelectDistrict, onSelectVillage, addressNote, onAddressChange, minimal = false }) => {
   const [showDistricts, setShowDistricts] = useState(false);
   const [showVillages, setShowVillages] = useState(false);
+  const [distSearch, setDistSearch] = useState('');
+  const [villSearch, setVillSearch] = useState('');
+
+  const filteredDistricts = MENOFIA_DATA.filter(d => d.name.includes(distSearch));
+  const filteredVillages = selectedDistrict?.villages.filter(v => v.name.includes(villSearch)) || [];
 
   return (
     <div className={`bg-white rounded-[2.5rem] card-shadow space-y-4 border border-slate-50 ${minimal ? 'p-4' : 'p-6'}`}>
@@ -127,28 +147,60 @@ const LocationSelector: React.FC<{
       )}
       <div className="grid grid-cols-2 gap-3" dir="rtl">
         <div className="relative">
-          <button onClick={() => { setShowDistricts(!showDistricts); setShowVillages(false); }} className="w-full bg-[#F8FAFC] p-4 rounded-2xl text-right flex justify-between items-center text-xs border border-slate-100">
+          <button onClick={() => { setShowDistricts(!showDistricts); setShowVillages(false); setDistSearch(''); }} className="w-full bg-[#F8FAFC] p-4 rounded-2xl text-right flex justify-between items-center text-xs border border-slate-100">
              <ChevronDown className={`h-4 w-4 text-slate-300 ${showDistricts ? 'rotate-180' : ''}`} />
              <span className="font-black text-slate-800 truncate">{selectedDistrict?.name || "اختر المركز"}</span>
           </button>
           {showDistricts && (
-            <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl z-[6000] max-h-48 overflow-y-auto no-scrollbar border border-slate-100 animate-in zoom-in">
-               {MENOFIA_DATA.map(d => (
-                 <button key={d.id} onClick={() => { onSelectDistrict(d); setShowDistricts(false); }} className="w-full p-4 text-right hover:bg-emerald-50 font-black text-xs border-b border-slate-50 last:border-none">{d.name}</button>
-               ))}
+            <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl z-[6000] max-h-64 overflow-hidden border border-slate-100 animate-in zoom-in flex flex-col">
+               <div className="p-3 border-b border-slate-50 sticky top-0 bg-white z-10">
+                  <div className="relative">
+                    <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-300" />
+                    <input 
+                      autoFocus
+                      value={distSearch}
+                      onChange={e => setDistSearch(e.target.value)}
+                      placeholder="بحث عن مركز..." 
+                      className="w-full bg-slate-50 p-2.5 pr-9 rounded-xl text-[10px] font-black outline-none border border-slate-100 focus:border-emerald-500 transition-all text-right"
+                    />
+                  </div>
+               </div>
+               <div className="overflow-y-auto no-scrollbar flex-1">
+                  {filteredDistricts.length > 0 ? filteredDistricts.map(d => (
+                    <button key={d.id} onClick={() => { onSelectDistrict(d); setShowDistricts(false); setDistSearch(''); }} className="w-full p-4 text-right hover:bg-emerald-50 font-black text-xs border-b border-slate-50 last:border-none">{d.name}</button>
+                  )) : (
+                    <div className="p-6 text-center text-[10px] font-bold text-slate-300">لا يوجد نتائج</div>
+                  )}
+               </div>
             </div>
           )}
         </div>
         <div className="relative">
-          <button onClick={() => { if(selectedDistrict) setShowVillages(!showVillages); setShowDistricts(false); }} disabled={!selectedDistrict} className="w-full bg-[#F8FAFC] p-4 rounded-2xl text-right flex justify-between items-center text-xs disabled:opacity-50 border border-slate-100">
+          <button onClick={() => { if(selectedDistrict) { setShowVillages(!showVillages); setShowDistricts(false); setVillSearch(''); } }} disabled={!selectedDistrict} className="w-full bg-[#F8FAFC] p-4 rounded-2xl text-right flex justify-between items-center text-xs disabled:opacity-50 border border-slate-100">
              <ChevronDown className={`h-4 w-4 text-slate-300 ${showVillages ? 'rotate-180' : ''}`} />
              <span className="font-black text-slate-800 truncate">{selectedVillage?.name || "اختر القرية"}</span>
           </button>
           {showVillages && selectedDistrict && (
-            <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl z-[6000] max-h-48 overflow-y-auto no-scrollbar border border-slate-100 animate-in zoom-in">
-               {selectedDistrict.villages.map(v => (
-                 <button key={v.id} onClick={() => { onSelectVillage(v); setShowVillages(false); }} className="w-full p-4 text-right hover:bg-emerald-50 font-black text-xs border-b border-slate-50 last:border-none">{v.name}</button>
-               ))}
+            <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl z-[6000] max-h-64 overflow-hidden border border-slate-100 animate-in zoom-in flex flex-col">
+               <div className="p-3 border-b border-slate-50 sticky top-0 bg-white z-10">
+                  <div className="relative">
+                    <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-300" />
+                    <input 
+                      autoFocus
+                      value={villSearch}
+                      onChange={e => setVillSearch(e.target.value)}
+                      placeholder="بحث عن قرية..." 
+                      className="w-full bg-slate-50 p-2.5 pr-9 rounded-xl text-[10px] font-black outline-none border border-slate-100 focus:border-emerald-500 transition-all text-right"
+                    />
+                  </div>
+               </div>
+               <div className="overflow-y-auto no-scrollbar flex-1">
+                  {filteredVillages.length > 0 ? filteredVillages.map(v => (
+                    <button key={v.id} onClick={() => { onSelectVillage(v); setShowVillages(false); setVillSearch(''); }} className="w-full p-4 text-right hover:bg-emerald-50 font-black text-xs border-b border-slate-50 last:border-none">{v.name}</button>
+                  )) : (
+                    <div className="p-6 text-center text-[10px] font-bold text-slate-300">لا يوجد نتائج</div>
+                  )}
+               </div>
             </div>
           )}
         </div>
@@ -465,6 +517,10 @@ const CustomerDashboard: React.FC<{ user: User }> = ({ user }) => {
   const [feedback, setFeedback] = useState('');
   const [isRatingSubmitting, setIsRatingSubmitting] = useState(false);
 
+  // Tracking Data
+  const [driverLoc, setDriverLoc] = useState<{lat: number, lng: number} | null>(null);
+  const [routeGeometry, setRouteGeometry] = useState<[number, number][]>([]);
+
   useEffect(() => {
     onSnapshot(query(collection(db, "restaurants"), orderBy("name", "asc")), (snap) => {
       setRestaurants(snap.docs.map(d => ({ id: d.id, ...stripFirestore(d.data()) })) as Restaurant[]);
@@ -486,7 +542,24 @@ const CustomerDashboard: React.FC<{ user: User }> = ({ user }) => {
         setIncomingOffers(snap.docs.map(d => ({ id: d.id, ...stripFirestore(d.data()) })) as Offer[]);
       });
     }
-  }, [activeOrder?.id, activeOrder?.status]);
+    
+    // تتبع الكابتن المباشر والمسار الفعلي فور قبول الطلب
+    if (activeOrder?.driverId && activeOrder.status !== OrderStatus.WAITING_FOR_OFFERS) {
+       const unsubDriver = onSnapshot(doc(db, "users", activeOrder.driverId), (docSnap) => {
+          if (docSnap.exists() && docSnap.data().location) {
+             const loc = docSnap.data().location;
+             setDriverLoc(loc);
+             // جلب المسار الفعلي من مكان الكابتن إلى نقطة الاستلام/التوصيل
+             const dest = activeOrder.status === OrderStatus.ACCEPTED ? activeOrder.pickup : activeOrder.dropoff;
+             getRouteGeometry(loc.lat, loc.lng, dest.lat, dest.lng).then(setRouteGeometry);
+          }
+       });
+       return () => unsubDriver();
+    } else {
+       setDriverLoc(null);
+       setRouteGeometry([]);
+    }
+  }, [activeOrder?.id, activeOrder?.status, activeOrder?.driverId]);
 
   useEffect(() => {
     if (pickupVillage && dropoffVillage) {
@@ -541,7 +614,29 @@ const CustomerDashboard: React.FC<{ user: User }> = ({ user }) => {
         pickupNotes: pickupNote, dropoffNotes: dropoffNote, ...extraData
       };
       await addDoc(collection(db, "orders"), stripFirestore(orderData));
-      window.open(`https://wa.me/201065019364?text=${encodeURIComponent(`طلب جديد عبر وصلها\nالعميل: ${user.name}\nالمسار: ${orderData.pickup?.villageName || 'موقعي'} ← ${finalVillage.name}`)}`, '_blank');
+
+      // بناء رسالة واتساب تفصيلية وشاملة
+      const catLabel = selectedCategory === 'TAXI' ? '🚖 مشوار' : selectedCategory === 'FOOD' ? '🍔 طلب أكل' : '💊 صيدلية';
+      const vehicleLabel = orderData.requestedVehicleType === 'TOKTOK' ? 'توكتوك 🛺' : orderData.requestedVehicleType === 'MOTORCYCLE' ? 'موتوسيكل 🏍️' : 'سيارة 🚗';
+      
+      let foodSummary = "";
+      if (orderData.foodItems && orderData.foodItems.length > 0) {
+        foodSummary = "\n📋 *الأصناف المطلوبة:*\n" + orderData.foodItems.map((i: any) => `- ${i.name} (عدد: ${i.quantity})`).join('\n');
+      }
+
+      const whatsappMsg = `*📢 طلب جديد من تطبيق وصلها*\n\n` +
+        `👤 *العميل:* ${user.name}\n` +
+        `📱 *الهاتف:* ${user.phone}\n` +
+        `📂 *القسم:* ${catLabel}\n` +
+        `📍 *الانطلاق:* ${orderData.pickup?.villageName || 'غير محدد'}\n` +
+        `🏁 *التوصيل:* ${orderData.dropoff?.villageName || 'غير محدد'}\n` +
+        `🛵 *المركبة:* ${vehicleLabel}\n` +
+        `💰 *التكلفة:* ${orderData.price} ج.م\n` +
+        (orderData.specialRequest ? `📝 *ملاحظة:* ${orderData.specialRequest}\n` : '') +
+        foodSummary +
+        `\n\n_تم الإرسال من تطبيق وصلها المنوفية_`;
+
+      window.open(`https://wa.me/201065019364?text=${encodeURIComponent(whatsappMsg)}`, '_blank');
     } catch (e) { alert('خطأ في إرسال الطلب'); } finally { setIsSubmitting(false); }
   };
 
@@ -666,7 +761,7 @@ const CustomerDashboard: React.FC<{ user: User }> = ({ user }) => {
                           <div className="relative">
                              <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handlePrescriptionUpload} />
                              {prescriptionImage ? (
-                               <div className="relative w-full aspect-video rounded-3xl overflow-hidden border-2 border-emerald-500">
+                               <div className="relative w-full aspect-video rounded-3xl overflow-hidden border-2 border-emerald-50">
                                   <img src={prescriptionImage} className="w-full h-full object-cover" />
                                   <button onClick={() => setPrescriptionImage(null)} className="absolute top-4 left-4 bg-slate-900/60 text-white p-2 rounded-xl"><X className="h-4 w-4" /></button>
                                </div>
@@ -705,7 +800,7 @@ const CustomerDashboard: React.FC<{ user: User }> = ({ user }) => {
                       <div key={rest.id} onClick={() => setViewingRestaurant(rest)} className="bg-white p-5 rounded-[3rem] card-shadow flex flex-row-reverse justify-between items-center cursor-pointer hover:border-emerald-500 border-2 border-transparent transition-all active:scale-95">
                          <div className="flex items-center gap-4 flex-row-reverse text-right">
                             <div className="w-16 h-16 bg-slate-900 rounded-[1.8rem] overflow-hidden shadow-lg border border-white/10">
-                               {rest.photoURL ? <img src={rest.photoURL} className="w-full h-full object-cover" /> : <UtensilsCrossed className="p-5 text-emerald-400" />}
+                               {rest.photoURL ? <img src={rest.photoURL} className="w-full h-full object-cover" /> : <Utensils className="p-5 text-emerald-400" />}
                             </div>
                             <div><h4 className="text-lg font-black text-slate-800 leading-tight">{rest.name}</h4><p className="text-[10px] font-bold text-slate-400">{rest.category}</p></div>
                          </div>
@@ -719,7 +814,7 @@ const CustomerDashboard: React.FC<{ user: User }> = ({ user }) => {
                     <LocationSelector label="مكان التوصيل" helper="أين ستستلم طلبك؟" icon={<CheckCircle2 />} iconBg="bg-rose-500" selectedDistrict={dropoffDistrict} selectedVillage={dropoffVillage} onSelectDistrict={setDropoffDistrict} onSelectVillage={setDropoffVillage} addressNote={dropoffNote} onAddressChange={setDropoffNote} />
                     <div className="grid grid-cols-3 gap-3">
                        {[{ id: 'TOKTOK', label: 'توكتوك', icon: <Zap className="h-4 w-4" /> }, { id: 'MOTORCYCLE', label: 'موتوسيكل', icon: <Bike className="h-4 w-4" /> }, { id: 'CAR', label: 'سيارة', icon: <Car className="h-4 w-4" /> }].map(v => (
-                         <button key={v.id} onClick={() => setSelectedVehicle(v.id as VehicleType)} className={`py-5 rounded-3xl flex flex-col items-center gap-2 border-2 transition-all font-black text-[10px] uppercase tracking-widest ${selectedVehicle === v.id ? 'bg-emerald-500 border-emerald-500 text-white shadow-xl scale-105' : 'bg-white border-slate-100 text-slate-400'}`}>
+                         <button key={v.id} onClick={() => setSelectedVehicle(v.id as VehicleType)} className={`py-5 rounded-3xl flex flex-col items-center gap-2 border-2 transition-all font-black text-[10px] uppercase tracking-widest ${selectedVehicle === v.id ? 'bg-emerald-50 border-emerald-500 text-white shadow-xl scale-105' : 'bg-white border-slate-100 text-slate-400'}`}>
                            {v.icon} {v.label}
                          </button>
                        ))}
@@ -785,6 +880,36 @@ const CustomerDashboard: React.FC<{ user: User }> = ({ user }) => {
                  </div>
                ) : (
                  <div className="space-y-8 animate-reveal">
+                    {/* خريطة تتبع الكابتن المباشرة والمسار الفعلي */}
+                    {driverLoc && (
+                      <div className="h-64 md:h-80 rounded-[3.5rem] overflow-hidden border-4 border-white shadow-2xl relative animate-in zoom-in duration-500">
+                        <MapContainer center={[driverLoc.lat, driverLoc.lng]} zoom={15} zoomControl={false} className="h-full w-full">
+                          <TileLayer url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png" />
+                          
+                          {/* الكابتن */}
+                          <Marker position={[driverLoc.lat, driverLoc.lng]} icon={driverIcon}>
+                             <Popup><p className="font-black text-xs text-right">مكان الكابتن الآن</p></Popup>
+                          </Marker>
+
+                          {/* الوجهة (نقطة استلام العميل أو الوجهة) */}
+                          <Marker position={[activeOrder.pickup.lat, activeOrder.pickup.lng]}>
+                             <Popup><p className="font-black text-xs text-right">نقطة الالتقاء</p></Popup>
+                          </Marker>
+
+                          {/* رسم المسار الفعلي (OSRM Routing) */}
+                          {routeGeometry.length > 0 && (
+                            <Polyline positions={routeGeometry} color="#10b981" weight={6} opacity={0.6} />
+                          )}
+
+                          <MapAutoFit points={[[driverLoc.lat, driverLoc.lng], [activeOrder.pickup.lat, activeOrder.pickup.lng]]} />
+                        </MapContainer>
+                        <div className="absolute top-5 right-5 z-[1000] bg-white/90 backdrop-blur-md px-5 py-2.5 rounded-2xl text-[9px] font-black shadow-xl border border-slate-100 flex items-center gap-2">
+                           <div className="w-2 h-2 bg-emerald-500 rounded-full animate-ping"></div>
+                           الكابتن يتحرك الآن
+                        </div>
+                      </div>
+                    )}
+
                     <div className="bg-emerald-600 p-8 rounded-[3rem] text-white flex justify-between items-center shadow-xl">
                        <div className="text-right"><p className="text-xs font-black opacity-60 uppercase mb-1">تتبع الرحلة</p><h3 className="text-2xl font-black">{activeOrder.status}</h3></div>
                        <div className="bg-white/20 p-4 rounded-2xl"><Navigation className="h-8 w-8 animate-bounce" /></div>

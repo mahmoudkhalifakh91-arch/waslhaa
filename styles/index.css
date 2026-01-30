@@ -3,9 +3,12 @@
 
 :root {
   --brand-emerald: #10b981;
+  --brand-emerald-dark: #065f46;
   --brand-blue: #0085C7;
   --brand-dark: #0F172A;
   --bg-light: #F8FAFC;
+  --card-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.05);
+  --premium-shadow: 0 20px 60px -15px rgba(16, 185, 129, 0.15);
 }
 
 * {
@@ -21,13 +24,12 @@ body {
   background-color: var(--bg-light);
   color: #1E293B;
   -webkit-font-smoothing: antialiased;
-  overflow: hidden; /* تم التعديل ليقوم الأبناء بالتحكم في التمرير */
+  overflow: hidden;
   height: 100vh;
   width: 100vw;
   position: fixed;
 }
 
-/* Base Layout Containers */
 .app-container {
   display: flex;
   flex-direction: column;
@@ -41,7 +43,7 @@ body {
   flex: 1;
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 65px); /* Adjusted for header height */
+  height: calc(100vh - 65px);
   overflow: hidden;
 }
 
@@ -51,52 +53,29 @@ body {
   }
 }
 
-/* New UI Elements */
 .card-shadow {
-  box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.05);
+  box-shadow: var(--card-shadow);
+}
+
+.premium-card {
+  background: white;
+  border-radius: 3rem;
+  border: 1px solid rgba(255,255,255,0.8);
+  box-shadow: var(--premium-shadow);
+  transition: all 0.3s ease;
+}
+
+.premium-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 25px 70px -20px rgba(16, 185, 129, 0.2);
 }
 
 .category-btn {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
-.category-btn.active {
-  border: 3px solid #10b981;
-  transform: scale(1.05);
-}
-
-.input-field {
-  background-color: #F1F5F9;
-  border-radius: 1rem;
-  padding: 1rem;
-  font-weight: 700;
-  font-size: 0.875rem;
-  border: none;
-  outline: none;
-  width: 100%;
-  text-align: right;
-}
-
-/* Layout */
-.rh-layout {
-  height: 100%;
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-}
-
-.page-container {
-  flex: 1;
-  overflow-y: auto;
-  padding-bottom: 120px;
-  background: var(--bg-light);
-}
-
-.map-page-container {
-  position: absolute;
-  inset: 0;
-  z-index: 10;
-  padding-bottom: 80px;
+.category-btn:active {
+  transform: scale(0.9);
 }
 
 .no-scrollbar::-webkit-scrollbar { display: none; }
@@ -104,16 +83,32 @@ body {
 
 button:active { transform: scale(0.96); }
 
-/* Animation Utils */
 @keyframes glow {
-  0% { box-shadow: 0 0 5px rgba(16, 185, 129, 0.2); }
-  50% { box-shadow: 0 0 25px rgba(16, 185, 129, 0.6); }
-  100% { box-shadow: 0 0 5px rgba(16, 185, 129, 0.2); }
+  0% { box-shadow: 0 0 5px rgba(16, 185, 129, 0.1); }
+  50% { box-shadow: 0 0 20px rgba(16, 185, 129, 0.4); }
+  100% { box-shadow: 0 0 5px rgba(16, 185, 129, 0.1); }
 }
-.animate-glow { animation: glow 2s ease-in-out infinite; }
+.animate-glow { animation: glow 3s ease-in-out infinite; }
 
-/* Custom Scroll Area */
-.overflow-both {
-  overflow: auto;
-  -webkit-overflow-scrolling: touch;
+@keyframes swing {
+  0%, 100% { transform: rotate(0deg); }
+  20% { transform: rotate(15deg); }
+  40% { transform: rotate(-10deg); }
+  60% { transform: rotate(5deg); }
+  80% { transform: rotate(-5deg); }
+}
+.animate-swing { animation: swing 2s ease-in-out infinite; }
+
+.glass-nav {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(20px);
+  border-top: 1px solid rgba(0, 0, 0, 0.03);
+}
+
+.page-container {
+  flex: 1;
+  overflow-y: auto;
+  padding-bottom: 120px;
+  background: var(--bg-light);
+  scroll-behavior: smooth;
 }

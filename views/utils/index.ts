@@ -1,18 +1,28 @@
 
 export const stripFirestore = (data: any, seen = new WeakSet()): any => {
   if (data === null || data === undefined) return data;
+  
   const type = typeof data;
   if (type !== 'object') return data;
+
   if (seen.has(data)) return undefined;
 
   if (typeof data.toMillis === 'function') return data.toMillis();
   if (typeof data.toDate === 'function') return data.toDate().getTime();
-  if (data.path && typeof data.path === 'string' && data.firestore) return data.path;
+  
+  if (data.id && data.path && typeof data.path === 'string') {
+    if (data.constructor.name.includes('DocumentReference') || data.firestore || data._delegate) {
+      return data.path;
+    }
+  }
 
   const isArray = Array.isArray(data);
-  const isPlainObject = Object.prototype.toString.call(data) === '[object Object]';
+  const proto = Object.getPrototypeOf(data);
+  const isPlainObject = proto === null || proto === Object.prototype || data.constructor?.name === 'Object';
   
-  if (!isArray && !isPlainObject) return undefined;
+  if (!isArray && !isPlainObject) {
+    return undefined;
+  }
 
   seen.add(data);
 

@@ -6,7 +6,7 @@ import type { User, Order } from '../types';
 import { OrderStatus } from '../types';
 
 // Utils
-import { stripFirestore } from '../utils';
+import { stripFirestore, getRouteGeometry } from '../utils';
 
 // Icons
 // Added missing Edit and Navigation2 imports
@@ -85,9 +85,10 @@ const CourierDashboard: React.FC<{ user: User }> = ({ user }) => {
   const [offerPrice, setOfferPrice] = useState<string>('');
   const [showChat, setShowChat] = useState(false);
   
-  // GPS Location
+  // GPS Location & Routing
   const [currentLocation, setCurrentLocation] = useState({ lat: 30.556, lng: 31.008 });
   const [customerLocation, setCustomerLocation] = useState<{lat: number, lng: number} | null>(null);
+  const [routeGeometry, setRouteGeometry] = useState<[number, number][]>([]);
   const watchId = useRef<number | null>(null);
 
   // --- Browser History (Back Button) Handler ---
@@ -129,6 +130,18 @@ const CourierDashboard: React.FC<{ user: User }> = ({ user }) => {
     }
     return () => { if (watchId.current !== null) navigator.geolocation.clearWatch(watchId.current); };
   }, [isOnline, user.id]);
+
+  // تحديث المسار الفعلي (Routing)
+  useEffect(() => {
+    if (activeOrder) {
+      const dest = activeOrder.status === OrderStatus.ACCEPTED ? activeOrder.pickup : activeOrder.dropoff;
+      getRouteGeometry(currentLocation.lat, currentLocation.lng, dest.lat, dest.lng)
+        .then(setRouteGeometry)
+        .catch(() => setRouteGeometry([[currentLocation.lat, currentLocation.lng], [dest.lat, dest.lng]]));
+    } else {
+      setRouteGeometry([]);
+    }
+  }, [activeOrder?.status, currentLocation, activeOrder?.pickup?.lat, activeOrder?.dropoff?.lat]);
 
   // تتبع موقع العميل المباشر فور قبول الطلب (إذا كان العميل يشارك موقعه)
   useEffect(() => {
@@ -259,16 +272,27 @@ const CourierDashboard: React.FC<{ user: User }> = ({ user }) => {
                   <Marker position={[activeOrder.dropoff.lat, activeOrder.dropoff.lng]}>
                     <Popup><p className="font-black text-xs text-right">نقطة الوصول</p></Popup>
                   </Marker>
-                  <Polyline 
-                    positions={[
-                      [activeOrder.pickup.lat, activeOrder.pickup.lng],
-                      [activeOrder.dropoff.lat, activeOrder.dropoff.lng]
-                    ]} 
-                    color="#0085C7" 
-                    dashArray="10, 10"
-                    weight={4}
-                    opacity={0.6}
-                  />
+                  
+                  {/* رسم المسار الفعلي بدلاً من الخط المستقيم */}
+                  {routeGeometry.length > 0 ? (
+                    <Polyline 
+                      positions={routeGeometry} 
+                      color="#0085C7" 
+                      weight={6}
+                      opacity={0.8}
+                    />
+                  ) : (
+                    <Polyline 
+                      positions={[
+                        [activeOrder.pickup.lat, activeOrder.pickup.lng],
+                        [activeOrder.dropoff.lat, activeOrder.dropoff.lng]
+                      ]} 
+                      color="#0085C7" 
+                      dashArray="10, 10"
+                      weight={4}
+                      opacity={0.4}
+                    />
+                  )}
                 </>
               )}
 

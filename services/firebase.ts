@@ -1,6 +1,6 @@
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getAuth } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+import { getAuth, GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { getMessaging, getToken, onMessage } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging.js";
 
@@ -17,13 +17,13 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
+export const googleProvider = new GoogleAuthProvider();
 
-// إعداد Firestore بطريقة تضمن استقرار الشبكة وتقليل أخطاء الذاكرة المؤقتة (Bloom Filter Errors)
+// إعداد Firestore بطريقة تضمن استقرار الشبكة وتقليل أخطاء الذاكرة المؤقتة
 export const db = initializeFirestore(app, {
   experimentalForceLongPolling: true,
   useFetchStreams: false,
   ignoreUndefinedProperties: true,
-  // استخدام الكاش المحلي لضمان العمل أوفلاين دون أخطاء في الفلترة
   localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
 });
 

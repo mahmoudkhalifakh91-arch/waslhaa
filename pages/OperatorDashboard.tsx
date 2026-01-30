@@ -13,8 +13,12 @@ import {
   updateDoc, where, getDocs, limit 
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
+// React Leaflet
+import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
+import L from 'leaflet';
+
 // Utils
-import { stripFirestore } from '../utils';
+import { stripFirestore, getRouteGeometry } from '../utils';
 
 // Icons
 import { 
@@ -23,37 +27,155 @@ import {
   Search, ShieldCheck, TrendingUp, AlertCircle, Info, 
   MessageCircle, Share2, Building2, Smartphone, ArrowLeft,
   CheckCircle2, DollarSign, User as UserIcon, Pill, Utensils,
-  Eye, Download, ZoomIn, ArrowUp, ClipboardList
+  Eye, Download, ZoomIn, ArrowUp, ClipboardList, Navigation,
+  Crosshair, Radar
 } from 'lucide-react';
 
-// --- Expanded Order Details Modal ---
-const OrderDetailsModal: React.FC<{ order: Order, onClose: () => void }> = ({ order, onClose }) => {
-  const getDistrictName = (villageName?: string) => {
-    return MENOFIA_DATA.find(d => d.villages.some(v => v.name === villageName))?.name || 'المنوفية';
-  };
+// --- Custom Icons for Map ---
+const driverIcon = (type: string) => L.divIcon({
+  html: `<div class="bg-white p-2 rounded-full shadow-2xl border-4 border-emerald-500 animate-pulse text-xl flex items-center justify-center">${type === 'CAR' ? '🚗' : '🛵'}</div>`,
+  className: 'admin-driver-icon',
+  iconSize: [45, 45],
+  iconAnchor: [22, 22]
+});
 
+const userIcon = L.divIcon({
+  html: `<div class="bg-white p-2 rounded-full shadow-lg border-4 border-blue-500 text-lg flex items-center justify-center">👤</div>`,
+  className: 'admin-user-icon',
+  iconSize: [40, 40],
+  iconAnchor: [20, 20]
+});
+
+const pickupIcon = L.divIcon({
+  html: `<div class="bg-white p-2 rounded-full shadow-lg border-4 border-rose-500 text-lg flex items-center justify-center">📍</div>`,
+  className: 'admin-pickup-icon',
+  iconSize: [40, 40],
+  iconAnchor: [20, 20]
+});
+
+const MapAutoFit: React.FC<{ points: [number, number][] }> = ({ points }) => {
+  const map = useMap();
+  useEffect(() => {
+    if (points.length > 1) {
+      map.fitBounds(L.latLngBounds(points), { padding: [100, 100] });
+    }
+  }, [points, map]);
+  return null;
+};
+
+// --- Live Tracking Modal Component ---
+const LiveTrackingModal: React.FC<{ order: Order, onClose: () => void }> = ({ order, onClose }) => {
+  const [driverLoc, setDriverLoc] = useState<{lat: number, lng: number} | null>(null);
+  const [custLoc, setCustLoc] = useState<{lat: number, lng: number} | null>(null);
+  const [route, setRoute] = useState<[number, number][]>([]);
+
+  useEffect(() => {
+    // تتبع موقع الكابتن
+    if (order.driverId) {
+      const unsub = onSnapshot(doc(db, "users", order.driverId), (d) => {
+        if (d.exists() && d.data().location) {
+          setDriverLoc(d.data().location);
+          const dest = order.status === OrderStatus.ACCEPTED ? order.pickup : order.dropoff;
+          getRouteGeometry(d.data().location.lat, d.data().location.lng, dest.lat, dest.lng).then(setRoute);
+        }
+      });
+      return () => unsub();
+    }
+  }, [order.driverId, order.status]);
+
+  useEffect(() => {
+    // تتبع موقع العميل (اختياري)
+    const unsub = onSnapshot(doc(db, "users", order.customerId), (d) => {
+      if (d.exists() && d.data().location) setCustLoc(d.data().location);
+    });
+    return () => unsub();
+  }, [order.customerId]);
+
+  return (
+    <div className="fixed inset-0 z-[15000] bg-slate-950 flex flex-col animate-in fade-in" dir="rtl">
+       <div className="p-6 md:p-8 bg-slate-900 text-white flex justify-between items-center shadow-2xl relative z-20">
+          <div className="flex items-center gap-5">
+             <div className="bg-emerald-500 p-3 rounded-2xl animate-glow"><Crosshair className="h-6 w-6" /></div>
+             <div className="text-right">
+                <h3 className="text-xl font-black">تتبع الرحلة مباشرة</h3>
+                <p className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest">الكابتن: {order.driverName || 'جاري التحديد'}</p>
+             </div>
+          </div>
+          <button onClick={onClose} className="p-4 bg-white/10 rounded-2xl hover:bg-white/20 transition-all"><X className="h-6 w-6" /></button>
+       </div>
+
+       <div className="flex-1 relative">
+          <MapContainer center={[30.55, 31.01]} zoom={14} zoomControl={false} className="h-full w-full">
+             <TileLayer url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png" />
+             
+             {/* Pickup Point */}
+             <Marker position={[order.pickup.lat, order.pickup.lng]} icon={pickupIcon}>
+                <Popup><div className="text-right font-black p-2">نقطة الاستلام</div></Popup>
+             </Marker>
+
+             {/* Destination Point */}
+             <Marker position={[order.dropoff.lat, order.dropoff.lng]}>
+                <Popup><div className="text-right font-black p-2">وجهة التوصيل</div></Popup>
+             </Marker>
+
+             {/* Driver Live Marker */}
+             {driverLoc && (
+               <Marker position={[driverLoc.lat, driverLoc.lng]} icon={driverIcon(order.requestedVehicleType)}>
+                  <Popup><div className="text-right font-black p-2">الكابتن يتحرك الآن</div></Popup>
+               </Marker>
+             )}
+
+             {/* Customer Live Marker (if shared) */}
+             {custLoc && <Marker position={[custLoc.lat, custLoc.lng]} icon={userIcon} />}
+
+             {/* Road Path */}
+             {route.length > 0 && <Polyline positions={route} color="#10b981" weight={6} opacity={0.6} />}
+
+             <MapAutoFit points={[
+                [order.pickup.lat, order.pickup.lng],
+                [order.dropoff.lat, order.dropoff.lng],
+                ...(driverLoc ? [[driverLoc.lat, driverLoc.lng] as [number, number]] : [])
+             ]} />
+          </MapContainer>
+
+          {/* Floating UI Info */}
+          <div className="absolute bottom-10 left-10 right-10 z-[1000] space-y-4">
+             <div className="bg-white/90 backdrop-blur-xl p-8 rounded-[3rem] shadow-2xl border border-slate-100 flex flex-col md:flex-row justify-between items-center gap-6">
+                <div className="text-right space-y-1">
+                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">المسار الحالي</p>
+                   <h4 className="text-lg font-black text-slate-900">{order.pickup?.villageName} <span className="text-emerald-500">←</span> {order.dropoff?.villageName}</h4>
+                </div>
+                <div className="flex gap-4">
+                   <a href={`tel:${order.driverPhone}`} className="bg-slate-950 text-white px-8 py-4 rounded-2xl font-black text-xs flex items-center gap-2 shadow-xl"><Phone className="h-4 w-4" /> اتصال بالكابتن</a>
+                   <div className="bg-emerald-50 text-emerald-600 px-6 py-4 rounded-2xl font-black text-xs border border-emerald-100 flex items-center gap-2">
+                      <div className="w-2 h-2 bg-emerald-500 rounded-full animate-ping"></div>
+                      تحديث تلقائي
+                   </div>
+                </div>
+             </div>
+          </div>
+       </div>
+    </div>
+  );
+};
+
+// --- Expanded Order Details Modal ---
+const OrderDetailsModal: React.FC<{ order: Order, onClose: () => void, onTrack: (order: Order) => void }> = ({ order, onClose, onTrack }) => {
   return (
     <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-xl z-[12000] flex items-center justify-center p-4 animate-in fade-in duration-300">
        <div className="bg-white w-full max-w-2xl rounded-[3.5rem] flex flex-col max-h-[90vh] shadow-2xl overflow-hidden animate-in zoom-in duration-500">
-          {/* Header */}
           <div className="p-6 md:p-8 bg-slate-50 border-b border-slate-100 flex justify-between items-center shrink-0">
              <div className="flex items-center gap-4">
-                <div className="bg-emerald-600 p-3 rounded-2xl text-white shadow-lg">
-                   <Zap className="h-6 w-6" />
-                </div>
+                <div className="bg-emerald-600 p-3 rounded-2xl text-white shadow-lg"><Zap className="h-6 w-6" /></div>
                 <div className="text-right">
-                   <h3 className="text-lg md:text-xl font-black text-slate-900">تفاصيل الرحلة</h3>
-                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">تطبيق وصلها - وحدة التحكم</p>
+                   <h3 className="text-lg md:text-xl font-black text-slate-900">بيانات الرحلة</h3>
+                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">تطبيق وصلها - التحكم المركزي</p>
                 </div>
              </div>
-             <button onClick={onClose} className="p-3 md:p-4 bg-white shadow-sm border border-slate-100 rounded-2xl text-slate-400 hover:text-rose-500 active:scale-90 transition-all">
-                <X className="h-6 w-6" />
-             </button>
+             <button onClick={onClose} className="p-3 md:p-4 bg-white shadow-sm border border-slate-100 rounded-2xl text-slate-400 hover:text-rose-500 active:scale-90 transition-all"><X className="h-6 w-6" /></button>
           </div>
 
-          {/* Content */}
-          <div className="flex-1 overflow-auto p-6 md:p-8 space-y-8 no-scrollbar">
-             {/* Status & Price */}
+          <div className="flex-1 overflow-auto p-6 md:p-8 space-y-8 no-scrollbar text-right">
              <div className="grid grid-cols-2 gap-4">
                 <div className="bg-emerald-50 p-6 rounded-[2rem] text-center border-2 border-emerald-100/50">
                    <p className="text-[10px] font-black text-emerald-600 uppercase mb-1">التكلفة</p>
@@ -65,30 +187,32 @@ const OrderDetailsModal: React.FC<{ order: Order, onClose: () => void }> = ({ or
                 </div>
              </div>
 
-             {/* Food Items Details */}
+             {order.driverId && (
+               <button onClick={() => onTrack(order)} className="w-full bg-emerald-600 text-white py-6 rounded-[2rem] font-black text-lg flex items-center justify-center gap-4 shadow-xl shadow-emerald-900/20 animate-glow">
+                  <Radar className="h-7 w-7" /> تتبع الكابتن مباشرة على الخريطة
+               </button>
+             )}
+
              {order.category === 'FOOD' && order.foodItems && (
-                <div className="bg-white p-6 rounded-[2.5rem] border border-emerald-100 shadow-sm space-y-4">
+                <div className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm space-y-4">
                    <div className="flex items-center gap-3 flex-row-reverse">
                       <ClipboardList className="h-6 w-6 text-emerald-500" />
-                      <h4 className="font-black text-slate-800">قائمة الوجبات المطلوبة:</h4>
+                      <h4 className="font-black text-slate-800">قائمة الطعام المطلوبة:</h4>
                    </div>
                    <div className="divide-y divide-slate-100">
                       {order.foodItems.map((item, idx) => (
-                         <div key={idx} className="py-4 flex justify-between items-center flex-row-reverse text-right">
-                            <div>
+                         <div key={idx} className="py-4 flex justify-between items-center flex-row-reverse">
+                            <div className="text-right">
                                <p className="font-black text-sm text-slate-800">{item.name}</p>
                                <p className="text-[10px] font-bold text-slate-400 mt-1">سعر القطعة: {item.price} ج.م</p>
                             </div>
-                            <div className="bg-slate-900 text-emerald-400 px-4 py-2 rounded-xl font-black text-xs">
-                               الكمية: {item.quantity}
-                            </div>
+                            <div className="bg-slate-50 text-slate-500 px-4 py-2 rounded-xl font-black text-xs">× {item.quantity}</div>
                          </div>
                       ))}
                    </div>
                 </div>
              )}
 
-             {/* Participants */}
              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm space-y-4">
                    <div className="flex items-center gap-3 flex-row-reverse text-right">
@@ -98,10 +222,7 @@ const OrderDetailsModal: React.FC<{ order: Order, onClose: () => void }> = ({ or
                          <p className="font-black text-slate-800 text-xs md:text-sm">{order.customerPhone}</p>
                       </div>
                    </div>
-                   <a href={`tel:${order.customerPhone}`} className="w-full bg-slate-50 p-4 rounded-2xl flex items-center justify-center gap-2 group hover:bg-emerald-50 transition-all">
-                      <Phone className="h-4 w-4 text-emerald-500" />
-                      <span className="font-bold text-slate-600 text-xs">اتصال</span>
-                   </a>
+                   <a href={`tel:${order.customerPhone}`} className="w-full bg-slate-50 p-4 rounded-2xl flex items-center justify-center gap-2 group hover:bg-emerald-50 transition-all"><Phone className="h-4 w-4 text-emerald-500" /><span className="font-bold text-slate-600 text-xs">اتصال</span></a>
                 </div>
 
                 <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm space-y-4">
@@ -112,18 +233,10 @@ const OrderDetailsModal: React.FC<{ order: Order, onClose: () => void }> = ({ or
                          <p className="font-black text-slate-800 text-xs md:text-sm">{order.driverName || 'لم يحدد'}</p>
                       </div>
                    </div>
-                   {order.driverPhone ? (
-                     <a href={`tel:${order.driverPhone}`} className="w-full bg-slate-50 p-4 rounded-2xl flex items-center justify-center gap-2 group hover:bg-amber-50 transition-all">
-                        <Phone className="h-4 w-4 text-amber-500" />
-                        <span className="font-bold text-slate-600 text-xs">اتصال</span>
-                     </a>
-                   ) : (
-                     <div className="p-4 text-center text-[9px] font-bold text-slate-300 italic">بانتظار عرض...</div>
-                   )}
+                   {order.driverPhone && <a href={`tel:${order.driverPhone}`} className="w-full bg-slate-50 p-4 rounded-2xl flex items-center justify-center gap-2 group hover:bg-amber-50 transition-all"><Phone className="h-4 w-4 text-amber-500" /><span className="font-bold text-slate-600 text-xs">اتصال</span></a>}
                 </div>
              </div>
 
-             {/* Path & Notes */}
              <div className="bg-slate-50 p-6 md:p-8 rounded-[2.5rem] space-y-6">
                 <div className="flex gap-4 md:gap-6 flex-row-reverse text-right">
                    <div className="flex flex-col items-center gap-2">
@@ -132,24 +245,13 @@ const OrderDetailsModal: React.FC<{ order: Order, onClose: () => void }> = ({ or
                       <div className="w-2.5 h-2.5 rounded-full bg-rose-500"></div>
                    </div>
                    <div className="flex-1 space-y-6">
-                      <div>
-                         <p className="text-[9px] font-black text-emerald-600 uppercase">الاستلام</p>
-                         <p className="font-black text-slate-800 text-xs md:text-sm">{order.pickup?.villageName}</p>
-                      </div>
-                      <div>
-                         <p className="text-[9px] font-black text-rose-600 uppercase">الوصول</p>
-                         <p className="font-black text-slate-800 text-xs md:text-sm">{order.dropoff?.villageName}</p>
-                      </div>
+                      <div><p className="text-[9px] font-black text-emerald-600 uppercase">من</p><p className="font-black text-slate-800 text-xs md:text-sm">{order.pickup?.villageName}</p><p className="text-[10px] font-bold text-slate-400 mt-0.5">{order.pickup?.address}</p></div>
+                      <div><p className="text-[9px] font-black text-rose-600 uppercase">إلى</p><p className="font-black text-slate-800 text-xs md:text-sm">{order.dropoff?.villageName}</p></div>
                    </div>
                 </div>
              </div>
           </div>
-
-          <div className="p-6 md:p-8 bg-slate-50 border-t border-slate-100 flex gap-4 shrink-0">
-             <button onClick={onClose} className="w-full bg-slate-900 text-white py-4 md:py-5 rounded-3xl font-black text-xs active:scale-95 transition-all">
-                إغلاق
-             </button>
-          </div>
+          <div className="p-6 md:p-8 bg-slate-50 border-t border-slate-100 shrink-0"><button onClick={onClose} className="w-full bg-slate-950 text-white py-4 md:py-5 rounded-3xl font-black text-xs active:scale-95 transition-all">إغلاق</button></div>
        </div>
     </div>
   );
@@ -192,11 +294,11 @@ const ManualAssignModal: React.FC<{ order: Order, onClose: () => void }> = ({ or
              <div className="py-20 flex justify-center"><Loader2 className="h-8 w-8 animate-spin text-emerald-500" /></div>
           ) : drivers.map(d => (
             <div key={d.id} onClick={() => assignDriver(d)} className="p-4 md:p-5 bg-slate-50 rounded-[1.8rem] md:rounded-[2.5rem] flex justify-between items-center hover:bg-emerald-50 transition-all cursor-pointer group">
-              <div className="flex items-center gap-3 md:gap-4">
+              <div className="flex items-center gap-3 md:gap-4 flex-row-reverse text-right">
                  <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center font-black text-slate-300 text-lg group-hover:bg-emerald-500 group-hover:text-white transition-all shadow-sm">
                     {(d.name || 'ك')[0]}
                  </div>
-                 <div className="text-right">
+                 <div>
                     <p className="font-black text-slate-800 text-sm md:text-base">{d.name}</p>
                     <p className="text-[9px] font-bold text-slate-400 uppercase">{d.vehicleType}</p>
                  </div>
@@ -216,6 +318,7 @@ const OperatorDashboard: React.FC<{ user: User }> = ({ user }) => {
   const [activeTab, setActiveTab] = useState<'LIVE' | 'DRIVERS' | 'HISTORY'>('LIVE');
   const [assignTarget, setAssignTarget] = useState<Order | null>(null);
   const [selectedOrderDetails, setSelectedOrderDetails] = useState<Order | null>(null);
+  const [trackingOrder, setTrackingOrder] = useState<Order | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
 
@@ -233,14 +336,8 @@ const OperatorDashboard: React.FC<{ user: User }> = ({ user }) => {
     setShowScrollTop(e.currentTarget.scrollTop > 400);
   };
 
-  const getDistrictName = (villageName?: string) => {
-    return MENOFIA_DATA.find(d => d.villages.some(v => v.name === villageName))?.name || 'المنوفية';
-  };
-
   const handleShareWhatsApp = (order: Order) => {
-    const pickupDist = getDistrictName(order.pickup?.villageName);
-    const dropoffDist = getDistrictName(order.dropoff?.villageName);
-    const msg = `*📢 طلب متاح في وصلها الآن*\n📍 *من:* مركز ${pickupDist} (${order.pickup?.villageName})\n🏁 *إلى:* مركز ${dropoffDist} (${order.dropoff?.villageName})\n💰 *السعر:* ${order.price} ج.م\n🛵 *المركبة:* ${order.requestedVehicleType}\n_افتح التطبيق الآن واقبل الطلب!_`;
+    const msg = `*📢 طلب متاح في وصلها*\n📍 *من:* ${order.pickup?.villageName}\n🏁 *إلى:* ${order.dropoff?.villageName}\n💰 *السعر:* ${order.price} ج.م\n_ادخل واقبل الطلب الآن!_`;
     window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
   };
 
@@ -257,7 +354,8 @@ const OperatorDashboard: React.FC<{ user: User }> = ({ user }) => {
       <div className="min-w-full">
         <div className="max-w-7xl mx-auto space-y-6 md:space-y-10 pb-40 p-4 md:p-6 animate-in fade-in duration-700 text-right">
           {assignTarget && <ManualAssignModal order={assignTarget} onClose={() => setAssignTarget(null)} />}
-          {selectedOrderDetails && <OrderDetailsModal order={selectedOrderDetails} onClose={() => setSelectedOrderDetails(null)} />}
+          {selectedOrderDetails && <OrderDetailsModal order={selectedOrderDetails} onTrack={(o) => { setSelectedOrderDetails(null); setTrackingOrder(o); }} onClose={() => setSelectedOrderDetails(null)} />}
+          {trackingOrder && <LiveTrackingModal order={trackingOrder} onClose={() => setTrackingOrder(null)} />}
           
           {/* Header Bar */}
           <div className="bg-white p-6 md:p-8 rounded-[2.5rem] md:rounded-[3.5rem] shadow-xl border border-slate-100 flex flex-col lg:flex-row-reverse justify-between items-center gap-6 md:gap-8 sticky top-0 z-[100] backdrop-blur-xl bg-white/95">
@@ -288,23 +386,16 @@ const OperatorDashboard: React.FC<{ user: User }> = ({ user }) => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
                {liveOrders.map((order) => (
                  <div key={order.id} className="bg-white rounded-[3rem] md:rounded-[4rem] border border-slate-100 shadow-2xl overflow-hidden group hover:border-emerald-500 transition-all animate-reveal relative flex flex-col">
-                    <button 
-                       onClick={() => setSelectedOrderDetails(order)}
-                       className="absolute top-6 left-6 z-20 bg-white/80 backdrop-blur-md p-3 rounded-2xl shadow-sm text-slate-400 hover:text-emerald-500 transition-all"
-                    >
-                       <Eye className="h-5 w-5" />
-                    </button>
-
                     <div className="bg-slate-50 p-6 md:p-8 flex justify-between items-center group-hover:bg-slate-900 group-hover:text-white transition-all cursor-pointer" onClick={() => setSelectedOrderDetails(order)}>
                        <p className="text-2xl md:text-3xl font-black">{order.price} <span className="text-xs opacity-40 font-bold">ج.م</span></p>
-                       <div className="flex items-center gap-2 md:gap-3 flex-row-reverse">
+                       <div className="flex items-center gap-2 md:gap-3 flex-row-reverse text-right">
                           <div className={`w-2.5 h-2.5 rounded-full ${order.driverId ? 'bg-emerald-500' : 'bg-amber-500 animate-bounce'}`}></div>
                           <span className="text-[9px] md:text-[10px] font-black uppercase tracking-widest">{order.status}</span>
                        </div>
                     </div>
                     <div className="p-8 md:p-10 space-y-6 md:space-y-8 flex-1">
                        <div className="space-y-6">
-                          <div className="flex gap-4 md:gap-6 items-start flex-row-reverse">
+                          <div className="flex gap-4 md:gap-6 items-start flex-row-reverse text-right">
                              <div className="bg-emerald-50 p-3 md:p-4 rounded-2xl text-emerald-600 shadow-sm shrink-0"><MapPin className="h-5 w-5 md:h-6 md:w-6" /></div>
                              <div className="flex-1 min-w-0">
                                 <p className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">المسار</p>
@@ -314,16 +405,11 @@ const OperatorDashboard: React.FC<{ user: User }> = ({ user }) => {
                                 </p>
                              </div>
                           </div>
-                          {order.category === 'FOOD' && order.foodItems && (
-                             <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 text-right">
-                                <p className="text-[8px] font-black text-slate-400 uppercase mb-1">الوجبات:</p>
-                                <p className="text-xs font-bold text-slate-600 truncate">{order.foodItems.map(i => i.name).join('، ')}</p>
-                             </div>
+                          {order.driverId && (
+                            <button onClick={() => setTrackingOrder(order)} className="w-full bg-emerald-50 text-emerald-600 py-3 rounded-xl font-black text-[10px] flex items-center justify-center gap-2 border border-emerald-100 hover:bg-emerald-100 transition-all">
+                               <Crosshair className="h-4 w-4" /> تتبع مباشر على الخريطة
+                            </button>
                           )}
-                          <div className="flex gap-4 md:gap-6 items-center pt-2 border-t border-slate-50 flex-row-reverse">
-                             <Smartphone className="h-4 w-4 md:h-5 md:w-5 text-slate-300" />
-                             <p className="text-xs font-bold font-mono tracking-widest text-slate-400" dir="ltr">{order.customerPhone}</p>
-                          </div>
                        </div>
                        
                        <div className="flex flex-col gap-3 mt-auto">
@@ -335,14 +421,13 @@ const OperatorDashboard: React.FC<{ user: User }> = ({ user }) => {
                             )}
                             <button onClick={() => handleShareWhatsApp(order)} className="p-4 md:p-6 bg-emerald-50 text-emerald-600 rounded-[1.2rem] md:rounded-[1.5rem] hover:bg-emerald-100 transition-all"><Share2 className="h-5 w-5 md:h-6 md:w-6" /></button>
                          </div>
-                         <button onClick={() => { if(window.confirm('إلغاء الطلب؟')) updateDoc(doc(db, "orders", order.id), { status: OrderStatus.CANCELLED }); }} className="w-full py-3 text-rose-500 font-black text-[8px] md:text-[9px] uppercase tracking-widest hover:bg-rose-50 rounded-2xl transition-all">إلغاء الرحلة</button>
                        </div>
                     </div>
                  </div>
                ))}
                {liveOrders.length === 0 && (
                  <div className="col-span-full py-32 md:py-40 text-center bg-white rounded-[3rem] md:rounded-[4rem] border-4 border-dashed border-slate-100">
-                    <Zap className="h-16 w-16 md:h-20 md:w-20 mx-auto text-slate-100 mb-6" />
+                    <Radar className="h-16 w-16 md:h-20 md:w-20 mx-auto text-slate-100 mb-6" />
                     <p className="text-slate-300 font-black text-lg md:text-xl">لا توجد رحلات نشطة حالياً</p>
                  </div>
                )}
@@ -388,16 +473,16 @@ const OperatorDashboard: React.FC<{ user: User }> = ({ user }) => {
 
           {activeTab === 'DRIVERS' && (
             <div className="bg-white p-6 md:p-10 rounded-[3rem] md:rounded-[4rem] border border-slate-100 shadow-xl animate-reveal">
-               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 text-right">
                   {drivers.map(d => (
-                    <div key={d.id} className="p-6 md:p-8 bg-slate-50 rounded-[2.5rem] md:rounded-[3rem] flex items-center gap-4 md:gap-6 border-2 border-transparent hover:border-emerald-500 hover:bg-white hover:shadow-2xl transition-all group">
+                    <div key={d.id} className="p-6 md:p-8 bg-slate-50 rounded-[2.5rem] md:rounded-[3rem] flex items-center gap-4 md:gap-6 border-2 border-transparent hover:border-emerald-500 hover:bg-white hover:shadow-2xl transition-all group flex-row-reverse">
                        <div className="w-16 h-16 md:w-20 md:h-20 bg-white rounded-[1.5rem] md:rounded-[2rem] flex items-center justify-center font-black text-slate-300 text-2xl md:text-3xl group-hover:bg-slate-950 group-hover:text-emerald-400 transition-all shadow-sm shrink-0">
                           {(d.name || 'ك')[0]}
                        </div>
                        <div className="flex-1 min-w-0">
                           <p className="font-black text-slate-900 text-base md:text-lg leading-none mb-2 truncate">{d.name}</p>
                           <p className="text-[10px] md:text-xs font-bold text-slate-400" dir="ltr">{d.phone}</p>
-                          <div className="flex items-center gap-2 mt-3">
+                          <div className="flex items-center gap-2 mt-3 flex-row-reverse">
                              <div className={`w-2 h-2 md:w-2.5 md:h-2.5 rounded-full ${d.status === 'APPROVED' ? 'bg-emerald-500' : 'bg-rose-500'}`}></div>
                              <span className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-400">{d.status}</span>
                           </div>
@@ -411,7 +496,6 @@ const OperatorDashboard: React.FC<{ user: User }> = ({ user }) => {
         </div>
       </div>
 
-      {/* Floating Scroll Top Button */}
       {showScrollTop && (
         <button 
           onClick={() => scrollContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' })}

@@ -1,5 +1,4 @@
 
-
 export type UserRole = 'ADMIN' | 'OPERATOR' | 'DRIVER' | 'CUSTOMER';
 export type UserStatus = 'PENDING_APPROVAL' | 'APPROVED' | 'SUSPENDED';
 export type PaymentMethod = 'CASH' | 'WALLET';
@@ -17,17 +16,16 @@ export enum OrderStatus {
   CANCELLED = 'CANCELLED'
 }
 
-// Added Ad interface to fix exported member errors in dashboards
 export interface Ad {
   id: string;
   title: string;
   description: string;
   imageUrl: string;
-  ctaText: string; // نص الزر مثل "اطلب الآن"
+  ctaText: string;
   type: 'special_offer' | 'restaurant' | 'service' | 'general';
-  targetId?: string; // ID المطعم أو الخدمة المرتبطة
+  targetId?: string;
   targetCategory?: OrderCategory;
-  whatsappNumber?: string; // حقل رقم الواتساب الجديد
+  whatsappNumber?: string;
   isActive: boolean;
   displayOrder: number;
   views: number;
@@ -55,10 +53,8 @@ export interface Restaurant {
   menuImageURLs?: string[];
   menu: MenuItem[];
   isOpen: boolean;
-  isFeatured?: boolean; // حقل جديد للإعلانات
-  // Added displayOrder property to fix "Property 'displayOrder' does not exist on type 'Restaurant'" error
-  displayOrder: number;
-  promoText?: string;   // نص العرض الخاص
+  isFeatured?: boolean;
+  promoText?: string;
 }
 
 export interface CartItem {
@@ -81,74 +77,36 @@ export interface Offer {
   createdAt: number;
 }
 
+// Added Zone interface to fix import errors in constants.ts and AdminDashboard.tsx
+export interface Zone {
+  id: string;
+  name: string;
+  operatorId: string;
+  pricing: { 
+    basePrice: number; 
+    pricePerKm: number; 
+    minPrice: number; 
+    maxPrice: number;
+    sameVillagePrice: number;
+    multipliers: {
+      MOTORCYCLE: number;
+      TOKTOK: number;
+      CAR: number;
+    }
+  };
+  center: { lat: number; lng: number };
+}
+
 export interface Village {
   id: string;
   name: string;
   center: { lat: number, lng: number };
 }
 
-// Added District interface to fix exported member errors in constants.ts and dashboards
 export interface District {
   id: string;
   name: string;
   villages: Village[];
-}
-
-export interface Zone {
-  id: string;
-  name: string;
-  operatorId: string;
-  pricing: {
-    basePrice: number;
-    pricePerKm: number;
-    minPrice: number;
-    maxPrice: number;
-    sameVillagePrice: number;
-    multipliers: Record<VehicleType, number>;
-  };
-  center: { lat: number; lng: number };
-  villages?: Village[];
-}
-
-export interface Order {
-  id: string;
-  customerId: string;
-  customerPhone: string;
-  driverId?: string;
-  driverName?: string;
-  driverPhone?: string;
-  driverPhoto?: string;
-  // Added driverRating to support displaying driver rating in CustomerDashboard
-  driverRating?: number;
-  operatorId: string;
-  zoneId: string;
-  category: OrderCategory;
-  pickup: { address: string; lat: number; lng: number; villageName?: string };
-  dropoff: { address: string; lat: number; lng: number; villageName?: string };
-  status: OrderStatus;
-  price: number;
-  distance: number;
-  commission: number;
-  operatorCut: number;
-  driverCut: number;
-  createdAt: number;
-  acceptedAt?: number;
-  deliveredAt?: number;
-  cancelledAt?: number;
-  ratedAt?: number;
-  notes?: string;
-  pickupNotes?: string;
-  dropoffNotes?: string;
-  passengerCount?: number;
-  prescriptionImage?: string;
-  paymentMethod: PaymentMethod;
-  requestedVehicleType: VehicleType;
-  transactionId?: string;
-  rating?: number;
-  feedback?: string;
-  foodItems?: CartItem[];
-  restaurantId?: string;
-  restaurantName?: string;
 }
 
 export interface User {
@@ -159,9 +117,9 @@ export interface User {
   role: UserRole;
   status: UserStatus;
   photoURL?: string;
-  password?: string; // حقل كلمة السر (لأغراض الإدارة)
+  password?: string;
   vehicleType?: VehicleType;
-  plateNumber?: string; // رقم لوحة المركبة
+  plateNumber?: string;
   operatorId?: string;
   zoneId?: string;
   wallet: {
@@ -174,4 +132,45 @@ export interface User {
     lng: number;
     updatedAt: number;
   };
+}
+
+export interface Order {
+  id: string;
+  customerId: string;
+  customerPhone: string;
+  driverId?: string;
+  driverName?: string;
+  driverPhone?: string;
+  driverPhoto?: string;
+  driverRating?: number;
+  operatorId: string;
+  zoneId: string;
+  category: OrderCategory;
+  pickup: { address: string; lat: number; lng: number; villageName?: string };
+  dropoff: { address: string; lat: number; lng: number; villageName?: string };
+  status: OrderStatus;
+  price: number;
+  distance: number;
+  commission?: number;
+  operatorCut?: number;
+  driverCut?: number;
+  createdAt: number;
+  acceptedAt?: number;
+  deliveredAt?: number;
+  cancelledAt?: number;
+  ratedAt?: number;
+  notes?: string;
+  pickupNotes?: string;
+  dropoffNotes?: string;
+  specialRequest?: string;
+  passengerCount?: number;
+  prescriptionImage?: string;
+  paymentMethod: PaymentMethod;
+  requestedVehicleType: VehicleType;
+  transactionId?: string;
+  rating?: number;
+  feedback?: string;
+  foodItems?: CartItem[];
+  restaurantId?: string;
+  restaurantName?: string;
 }
